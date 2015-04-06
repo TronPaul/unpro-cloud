@@ -1,0 +1,124 @@
+unpro:
+  template_path: templates
+  stacks:
+    vpc:
+      description: unpro VPC stack
+      parameters:
+        KeyName:
+          description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+          type: String
+          minLength: 1
+          maxLength: 64
+          allowedPattern: '[-_ a-zA-Z0-9]*'
+          constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
+        NATEIPAllocationId:
+          description: EIPAllocationId to use for the NAT
+          type: String
+        VPC:
+          description: VPC reference
+          type: String
+        PublicSubnetCidr:
+          description: Address range for a public subnet to be created in AZ.
+          type: String
+          default: 10.0.0.0/24
+        PrivateSubnetCidr:
+          description: Address range for a public subnet to be created in AZ.
+          type: String
+          default: 10.0.1.0/24
+        NATNodeInstanceType:
+          description: Instance type for NAT nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+        AvailablityZone:
+          description: AZ to use for PublicSubnet/PrivateSubnet.
+          type: String
+          default: us-east-1c
+      mappings:
+        NATAMI:
+          us-east-1:
+            AMI: ami-6e9e4b06
+      resource_chunk: vpc_chunk.json
+      resources:
+        PublicSubnet:
+          template: subnet.yaml
+          variables:
+            cidr_name: PublicSubnetCidr
+            network: Public
+        PrivateSubnet:
+          template: subnet.yaml
+          variables:
+            cidr_name: PrivateSubnetCidr
+            network: Private
+        PublicRouteTable:
+          template: route_table.yaml
+          variables:
+            network: Public
+        PrivateRouteTable:
+          template: route_table.yaml
+          variables:
+            network: Private
+        PublicSubnetRTAssoc:
+          template: route_table_assoc.yaml
+          variables:
+            prefix: Public
+        PrivateSubnetRTAssoc:
+          template: route_table_assoc.yaml
+          variables:
+            prefix: Private
+        NATNetworkInterface:
+          template: network_interface.yaml
+          variables:
+            ip_address: 10.0.0.5
+            subnet: PublicSubnet
+            security_groups:
+              - NATSecurityGroup
+            source_dest: false
+        NATInstance:
+          template: instance.yaml
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: NATNodeInstanceType
+            network_interfaces:
+              - NATNetworkInterface
+            image_map: NATAMI
+            name: NAT
+        NATSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: tcp
+                port: 22
+              - protocol: tcp
+                port: 80
+              - protocol: tcp
+                port: 64738
+              - protocol: udp
+                port: 64738
+              - protocol: udp
+                port: 1194
+              - protocol: -1
+                cidr: 10.0.0.0/16
+            egress_rules:
+              - protocol: -1
+        NATPrivateDNSRecord:
+          template: dns_record.yaml
+          variables:
+            zone: teamunpro.
+            name: nat.teamunpro.
+            instance: NATInstance
+    instances:
+      description: unpro Instances stack
+      parameters:
+        KeyName:
+        VPNCidr:
+        VPC:
+          source:
+            stack: vpc
+            type: resource

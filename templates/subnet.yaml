@@ -1,0 +1,14 @@
+type: AWS::EC2::Subnet
+properties:
+  VpcId:
+    Ref: VPC
+  AvailabilityZone:
+    Ref: AvailablityZone
+  CidrBlock:
+    Ref: {{cidr_name}}
+  Tags:
+    - Key: Application
+      Value:
+        Ref: AWS::StackName
+    - Key: Network
+      Value: {{network}}

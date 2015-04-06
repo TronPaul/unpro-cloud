@@ -1,0 +1,81 @@
+{
+  "InternetGateway" : {
+    "Type" : "AWS::EC2::InternetGateway",
+    "Properties" : {
+      "Tags" : [
+        { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+        { "Key" : "Network", "Value" : "Public" }
+      ]
+    }
+  },
+
+  "GatewayToInternet" : {
+     "Type" : "AWS::EC2::VPCGatewayAttachment",
+     "Properties" : {
+       "VpcId" : { "Ref" : "VPC" },
+       "InternetGatewayId" : { "Ref" : "InternetGateway" }
+     }
+  },
+
+  "PublicRoute" : {
+    "Type" : "AWS::EC2::Route",
+    "Properties" : {
+      "RouteTableId" : { "Ref" : "PublicRouteTable" },
+      "DestinationCidrBlock" : "0.0.0.0/0",
+      "GatewayId" : { "Ref" : "InternetGateway" }
+    }
+  },
+
+  "PrivateRoute" : {
+    "Type" : "AWS::EC2::Route",
+    "Properties" : {
+      "RouteTableId" : { "Ref" : "PrivateRouteTable" },
+      "DestinationCidrBlock" : "0.0.0.0/0",
+      "NetworkInterfaceId" : { "Ref" : "NATNetworkInterface" }
+    }
+  },
+
+  "NATEIPAssociation" : {
+    "Type" : "AWS::EC2::EIPAssociation",
+    "DependsOn" : "GatewayToInternet",
+    "Properties" : {
+      "AllocationId" : { "Ref" : "NATEIPAllocationId" },
+      "NetworkInterfaceId" : { "Ref" : "NATNetworkInterface" }
+    }
+  },
+
+  "NATAllowICMP" : {
+    "Type" : "AWS::EC2::SecurityGroupIngress",
+    "Properties" : {
+      "GroupId" : { "Ref" : "NATSecurityGroup" },
+      "IpProtocol" : "icmp", 
+	"FromPort" : "-1",  
+	"ToPort" : "-1",  
+	"SourceSecurityGroupId" : { "Ref" : "NATSecurityGroup" }
+    }
+  },
+
+  "NATPrivateDNSRecord" : {
+    "Type" : "AWS::Route53::RecordSet",
+    "DependsOn" : "NATInstance",
+    "Properties" : {
+      "HostedZoneName" : "teamunpro.",
+      "Name" : "nat.teamunpro.",
+      "Type" : "CNAME",
+      "TTL" : "60",
+      "ResourceRecords" : [ {"Fn::GetAtt" : [ "NATInstance", "PrivateDnsName" ] } ]
+    }
+  },
+
+  "NATPublicDNSRecord" : {
+    "Type" : "AWS::Route53::RecordSet",
+    "DependsOn" : "NATEIPAssociation",
+    "Properties" : {
+      "HostedZoneName" : "teamunpro.com.",
+      "Name" : "teamunpro.com",
+      "Type" : "A",
+      "TTL" : "60",
+      "ResourceRecords" : [ {"Fn::GetAtt" : [ "NATInstance", "PublicIp" ] } ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+type: AWS::Route53::RecordSet
+{% if depends_on %}
+dependsOn: {{depends_on}}
+{% endif %}
+properties:
+  HostedZoneName: {{zone}}
+  Name: {{name}}
+  Type: CNAME
+  TTL: 60
+  ResourceRecords:
+  - Fn::GetAtt:
+      - {{instance}}
+      - PrivateDnsName

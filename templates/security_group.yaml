@@ -1,0 +1,26 @@
+type: AWS::EC2::SecurityGroup
+properties:
+  VpcId:
+    Ref: VPC
+{% if ingress_rules %}
+  SecurityGroupIngress:
+{% for rule in ingress_rules %}
+    {% if rule.protocol == -1 %}
+    - IpProtocol: -1
+      FromPort: 0
+      ToPort: 65535
+    {% else %}
+    - IpProtocol: {{rule.protocol}}
+      FromPort: {{rule.from_port if rule.from_port else rule.port}}
+      ToPort: {{rule.to_port if rule.to_port else rule.port}}
+    {% endif %}
+    {% if rule.cidr_ref %}
+      CidrIp:
+        Ref: {{rule.cidr_ref}}
+    {% elif rule.cidr %}
+      CidrIp: {{rule.cidr}}
+    {% else %}
+      CidrIp: 0.0.0.0/0
+    {% endif %}
+{% endfor %}
+{% endif %}

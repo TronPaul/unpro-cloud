@@ -1,0 +1,21 @@
+type: AWS::EC2::Instance
+{% if depends_on %}
+dependsOn: {{depends_on}}
+{% endif %}
+properties:
+  InstanceType: {{instance_type}}
+  KeyName:
+    Ref: KeyName
+  NetworkInterfaces:
+{% for ni in network_interfaces %}
+    - NetworkInterfaceId:
+        Ref: {{ni}}
+      DeviceIndex: {{loop.index0}}
+{% endfor %}
+  ImageId:
+    Fn::FindInMap:
+      - {{image_map}}
+      - Ref: AWS::Region
+      - AMI
+  Tags:
+    Name: {{name}}

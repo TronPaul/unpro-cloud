@@ -5,7 +5,7 @@ properties:
   PrivateIpAddress: {{ip_address}}
   GroupSet:
 {% for group in security_groups %}
-    - Ref: {{ group}}
+    - Ref: {{group}}
 {% endfor %}
 {% if source_dest %}
   SourceDestCheck: {{source_dest}}

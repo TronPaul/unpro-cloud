@@ -1,0 +1,7 @@
+type: AWS::EC2::Route
+properties:
+  RouteTableId:
+    Ref: {{route_table}}
+  DestinationCidrBlock: {{dest_cidr}}
+  NetworkInterfaceId:
+    Ref: {{network_interface}}

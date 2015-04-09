@@ -26,15 +26,6 @@
     }
   },
 
-  "PrivateRoute" : {
-    "Type" : "AWS::EC2::Route",
-    "Properties" : {
-      "RouteTableId" : { "Ref" : "PrivateRouteTable" },
-      "DestinationCidrBlock" : "0.0.0.0/0",
-      "NetworkInterfaceId" : { "Ref" : "NATNetworkInterface" }
-    }
-  },
-
   "NATEIPAssociation" : {
     "Type" : "AWS::EC2::EIPAssociation",
     "DependsOn" : "GatewayToInternet",
@@ -52,18 +43,6 @@
 	"FromPort" : "-1",  
 	"ToPort" : "-1",  
 	"SourceSecurityGroupId" : { "Ref" : "NATSecurityGroup" }
-    }
-  },
-
-  "NATPrivateDNSRecord" : {
-    "Type" : "AWS::Route53::RecordSet",
-    "DependsOn" : "NATInstance",
-    "Properties" : {
-      "HostedZoneName" : "teamunpro.",
-      "Name" : "nat.teamunpro.",
-      "Type" : "CNAME",
-      "TTL" : "60",
-      "ResourceRecords" : [ {"Fn::GetAtt" : [ "NATInstance", "PrivateDnsName" ] } ]
     }
   },
 

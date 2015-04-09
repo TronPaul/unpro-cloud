@@ -11,12 +11,18 @@ unpro:
           maxLength: 64
           allowedPattern: '[-_ a-zA-Z0-9]*'
           constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
-        NATEIPAllocationId:
-          description: EIPAllocationId to use for the NAT
-          type: String
+          default: teamunpro
         VPC:
           description: VPC reference
           type: String
+        VPCCidr:
+          description: VPC Cidr
+          type: String
+          default: 10.0.0.0/16 #TODO: pull this from aws when its supported
+        NATEIPAllocationId:
+          description: EIPAllocationId to use for the NAT
+          type: String
+          default: eipalloc-a4f14fc1
         PublicSubnetCidr:
           description: Address range for a public subnet to be created in AZ.
           type: String
@@ -64,6 +70,12 @@ unpro:
           template: route_table.yaml
           variables:
             network: Private
+        PrivateRoute:
+          template: route.yaml
+          variables:
+            dest_cidr: 0.0.0.0/0
+            route_table: PrivateRouteTable
+            network_interface: NATNetworkInterface
         PublicSubnetRTAssoc:
           template: route_table_assoc.yaml
           variables:
@@ -72,6 +84,24 @@ unpro:
           template: route_table_assoc.yaml
           variables:
             prefix: Private
+        NATSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: tcp
+                port: 22
+              - protocol: tcp
+                port: 80
+              - protocol: tcp
+                port: 64738
+              - protocol: udp
+                port: 64738
+              - protocol: udp
+                port: 1194
+              - protocol: -1
+                cidr: {Ref: VPCCidr}
+            egress_rules:
+              - protocol: -1
         NATNetworkInterface:
           template: network_interface.yaml
           variables:
@@ -89,24 +119,6 @@ unpro:
               - NATNetworkInterface
             image_map: NATAMI
             name: NAT
-        NATSecurityGroup:
-          template: security_group.yaml
-          variables:
-            ingress_rules:
-              - protocol: tcp
-                port: 22
-              - protocol: tcp
-                port: 80
-              - protocol: tcp
-                port: 64738
-              - protocol: udp
-                port: 64738
-              - protocol: udp
-                port: 1194
-              - protocol: -1
-                cidr: 10.0.0.0/16
-            egress_rules:
-              - protocol: -1
         NATPrivateDNSRecord:
           template: dns_record.yaml
           variables:
@@ -114,11 +126,172 @@ unpro:
             name: nat.teamunpro.
             instance: NATInstance
     instances:
-      description: unpro Instances stack
+      description: unpro instances stack
       parameters:
         KeyName:
-        VPNCidr:
+          description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+          type: String
+          minLength: 1
+          maxLength: 64
+          allowedPattern: '[-_ a-zA-Z0-9]*'
+          constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
+          default: teamunpro
         VPC:
+          type: String
           source:
             stack: vpc
             type: resource
+        VPCCidr:
+          type: String
+          source:
+            stack: vpc
+            type: parameter
+        PrivateSubnet:
+          type: String
+          source:
+            stack: vpc
+            type: parameter
+        PrivateRouteTable:
+          type: String
+          source:
+            stack: vpc
+            type: parameter
+        PublicRouteTable:
+          type: String
+          source:
+            stack: vpc
+            type: parameter
+        VPNCidr: 
+          type: String
+          default: 10.1.0.0/24
+      mappings:
+        UNPROAMI:
+          us-east-1:
+            AMI: ami-6451750c
+      resources:
+        EgressSecurityGroup:
+          template: security_group.yaml
+          variables:
+            egress_rules:
+              - protocol: -1
+        SSHSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: tcp
+                port: 22
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 22
+                cidr: {Ref: VPNCidr}
+        MumbleSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: -1
+                port: 64738
+                cidr: {Ref: VPCCidr}
+              - protocol: -1
+                port: 64738
+                cidr: {Ref: VPNCidr}
+        MumbleNetworkInterface:
+          template: network_interface.yaml
+          variables:
+            ip_address: 10.0.0.6
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - SSHSecurityGroup
+              - MumbleSecurityGroup
+        MumbleInstanceProfile:
+          template: instance_profile.yaml
+          variables:
+            roles:
+              - S3Backup
+        MumbleInstance:
+          template: instance.yaml
+          variables:
+            instance_type: MumbleNodeInstanceType
+            instance_profile: MumbleInstanceProfile
+            network_interfaces:
+              - MumbleNetworkInterface
+            image_map: UNPROAMI
+            name: mumble
+        MumblePrivateDNSRecord:
+          template: dns_record.yaml
+          variables:
+            zone: teamunpro.
+            name: mumble.teamunpro.
+            instance: MumbleInstance
+        VPNPublicRoute:
+          template: route.yaml
+          variables:
+            dest_cidr: 10.1.0.0/24
+            route_table: PublicRouteTable
+            network_interface: VPNNetworkInterface
+        VPNPrivateRoute:
+          template: route.yaml
+          variables:
+            dest_cidr: 10.1.0.0/24
+            route_table: PrivateRouteTable
+            network_interface: VPNNetworkInterface
+        VPNSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: udp
+                port: 1194
+        VPNNetworkInterface:
+          template: network_interface.yaml
+          variables:
+            ip_address: 10.0.0.7
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - SSHSecurityGroup
+              - VPNSecurityGroup
+        VPNInstanceProfile:
+          template: instance_profile.yaml
+          variables:
+            roles:
+              - VPNCACert
+        VPNInstance:
+          template: instance.yaml
+          variables:
+            instance_type: VPNNodeInstanceType
+            instance_profile: VPNInstanceProfile
+            network_interfaces:
+              - VPNNetworkInterface
+            image_map: UNPROAMI
+            name: VPN
+        VPNPrivateDNSRecord:
+          template: dns_record.yaml
+          variables:
+            zone: teamunpro.
+            name: vpn.teamunpro.
+            instance: VPNInstance
+        WWWSecurityGroup:
+          template: security_group.yaml
+          variables:
+            ingress_rules:
+              - protocol: tcp
+                port: 80
+              - protocol: tcp
+                port: 443 
+        WWWNetworkInterface:
+          template: network_interface.yaml
+          variables:
+            ip_address: 10.0.0.8
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - SSHSecurityGroup
+              - WWWSecurityGroup
+        WWWInstance:
+          template: instance.yaml
+          variables:
+            instance_type: WWWNodeInstanceType
+            network_interfaces:
+              - WWWNetworkInterface
+            image_map: UNPROAMI
+            name: WWW

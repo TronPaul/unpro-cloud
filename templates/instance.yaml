@@ -3,9 +3,14 @@ type: AWS::EC2::Instance
 dependsOn: {{depends_on}}
 {% endif %}
 properties:
-  InstanceType: {{instance_type}}
+  InstanceType:
+    Ref: {{instance_type}}
   KeyName:
     Ref: KeyName
+{% if instance_profile %}
+  IamInstanceProfile:
+    Ref: {{instance_profile}}
+{% endif %}
   NetworkInterfaces:
 {% for ni in network_interfaces %}
     - NetworkInterfaceId:
@@ -18,12 +23,13 @@ properties:
       - Ref: AWS::Region
       - AMI
   Tags:
-    Name: {{name}}
+    - Key: Name
+      Value: {{name}}
   UserData:
     Fn::Base64:
       Fn::Join:
         - ""
         -
           - '#!/bin/bash -v\n'
-          - wget -O bootstrap-unpro.sh https://raw.githubusercontent.com/TronPaul/unpro-salt/master/bootstrap-unpro-salt\n
-          - sh ./bootstrap-unpro.sh -i {{name}}\n
+          - 'wget -O bootstrap-unpro.sh https://raw.githubusercontent.com/TronPaul/unpro-salt/master/bootstrap-unpro-salt\n'
+          - 'sh ./bootstrap-unpro.sh -i {{name}}\n'

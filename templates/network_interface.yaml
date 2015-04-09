@@ -7,6 +7,6 @@ properties:
 {% for group in security_groups %}
     - Ref: {{group}}
 {% endfor %}
-{% if source_dest %}
+{% if source_dest is defined %}
   SourceDestCheck: {{source_dest}}
 {% endif %}

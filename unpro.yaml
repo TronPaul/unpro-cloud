@@ -1,5 +1,6 @@
 unpro:
   template_path: templates
+  region: us-east-1
   stacks:
     vpc:
       description: unpro VPC stack
@@ -15,6 +16,7 @@ unpro:
         VPC:
           description: VPC reference
           type: String
+          default: vpc-d7772eb2
         VPCCidr:
           description: VPC Cidr
           type: String
@@ -87,6 +89,7 @@ unpro:
         NATSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow service ports for private subnets.
             ingress_rules:
               - protocol: tcp
                 port: 22
@@ -140,7 +143,7 @@ unpro:
           type: String
           source:
             stack: vpc
-            type: resource
+            type: parameter
         VPCCidr:
           type: String
           source:
@@ -150,20 +153,53 @@ unpro:
           type: String
           source:
             stack: vpc
-            type: parameter
+            type: resource
         PrivateRouteTable:
           type: String
           source:
             stack: vpc
-            type: parameter
+            type: resource
         PublicRouteTable:
           type: String
           source:
             stack: vpc
-            type: parameter
+            type: resource
         VPNCidr: 
           type: String
           default: 10.1.0.0/24
+        VPNNodeInstanceType:
+          description: Instance type for VPN nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+        MumbleNodeInstanceType:
+          description: Instance type for Mumble nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+        WWWNodeInstanceType:
+          description: Instance type for WWW nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
       mappings:
         UNPROAMI:
           us-east-1:
@@ -172,11 +208,13 @@ unpro:
         EgressSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow all outbound traffic
             egress_rules:
               - protocol: -1
         SSHSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow SSH from local nodes
             ingress_rules:
               - protocol: tcp
                 port: 22
@@ -187,6 +225,7 @@ unpro:
         MumbleSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow mumble ports
             ingress_rules:
               - protocol: -1
                 port: 64738
@@ -197,7 +236,7 @@ unpro:
         MumbleNetworkInterface:
           template: network_interface.yaml
           variables:
-            ip_address: 10.0.0.6
+            ip_address: 10.0.1.5
             subnet: PrivateSubnet
             security_groups:
               - EgressSecurityGroup
@@ -238,13 +277,14 @@ unpro:
         VPNSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow VPN traffic
             ingress_rules:
               - protocol: udp
                 port: 1194
         VPNNetworkInterface:
           template: network_interface.yaml
           variables:
-            ip_address: 10.0.0.7
+            ip_address: 10.0.1.6
             subnet: PrivateSubnet
             security_groups:
               - EgressSecurityGroup
@@ -273,6 +313,7 @@ unpro:
         WWWSecurityGroup:
           template: security_group.yaml
           variables:
+            description: Allow WWW traffic
             ingress_rules:
               - protocol: tcp
                 port: 80
@@ -281,7 +322,7 @@ unpro:
         WWWNetworkInterface:
           template: network_interface.yaml
           variables:
-            ip_address: 10.0.0.8
+            ip_address: 10.0.1.7
             subnet: PrivateSubnet
             security_groups:
               - EgressSecurityGroup

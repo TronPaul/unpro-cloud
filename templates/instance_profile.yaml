@@ -1,7 +1,7 @@
 type: AWS::IAM::InstanceProfile
 properties:
-  path: /
-  roles:
+  Path: /
+  Roles:
 {% for role in roles %}
     - {{role}}
 {% endfor %}

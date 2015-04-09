@@ -118,7 +118,7 @@ unpro:
             network_interfaces:
               - NATNetworkInterface
             image_map: NATAMI
-            name: NAT
+            name: nat
         NATPrivateDNSRecord:
           template: dns_record.yaml
           variables:
@@ -263,7 +263,7 @@ unpro:
             network_interfaces:
               - VPNNetworkInterface
             image_map: UNPROAMI
-            name: VPN
+            name: vpn
         VPNPrivateDNSRecord:
           template: dns_record.yaml
           variables:
@@ -294,4 +294,4 @@ unpro:
             network_interfaces:
               - WWWNetworkInterface
             image_map: UNPROAMI
-            name: WWW
+            name: www

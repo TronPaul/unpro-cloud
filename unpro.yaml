@@ -203,7 +203,7 @@ unpro:
       mappings:
         UNPROAMI:
           us-east-1:
-            AMI: ami-6451750c
+            AMI: ami-924a70fa
       resources:
         EgressSecurityGroup:
           template: security_group.yaml

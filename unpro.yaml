@@ -256,6 +256,8 @@ unpro:
               - MumbleNetworkInterface
             image_map: UNPROAMI
             name: mumble
+            roles:
+              - voice_server
         MumblePrivateDNSRecord:
           template: dns_record.yaml
           variables:
@@ -304,35 +306,11 @@ unpro:
               - VPNNetworkInterface
             image_map: UNPROAMI
             name: vpn
+            roles:
+             - vpn_server
         VPNPrivateDNSRecord:
           template: dns_record.yaml
           variables:
             zone: teamunpro.
             name: vpn.teamunpro.
             instance: VPNInstance
-        WWWSecurityGroup:
-          template: security_group.yaml
-          variables:
-            description: Allow WWW traffic
-            ingress_rules:
-              - protocol: tcp
-                port: 80
-              - protocol: tcp
-                port: 443 
-        WWWNetworkInterface:
-          template: network_interface.yaml
-          variables:
-            ip_address: 10.0.1.7
-            subnet: PrivateSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - SSHSecurityGroup
-              - WWWSecurityGroup
-        WWWInstance:
-          template: instance.yaml
-          variables:
-            instance_type: WWWNodeInstanceType
-            network_interfaces:
-              - WWWNetworkInterface
-            image_map: UNPROAMI
-            name: www

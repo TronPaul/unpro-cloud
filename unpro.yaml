@@ -94,7 +94,7 @@ unpro:
               - protocol: tcp
                 port: 22
               - protocol: tcp
-                port: 80
+                port: 6667
               - protocol: tcp
                 port: 64738
               - protocol: udp
@@ -113,15 +113,23 @@ unpro:
             security_groups:
               - NATSecurityGroup
             source_dest: false
+        NATInstanceProfile:
+          template: instance_profile.yaml
+          variables:
+            roles:
+              - NATInstance
         NATInstance:
           template: instance.yaml
           variables:
             depends_on: GatewayToInternet
             instance_type: NATNodeInstanceType
+            instance_profile: NATInstanceProfile
             network_interfaces:
               - NATNetworkInterface
             image_map: NATAMI
             name: nat
+            roles:
+              - aws_nat
         NATPrivateDNSRecord:
           template: dns_record.yaml
           variables:
@@ -203,7 +211,7 @@ unpro:
       mappings:
         UNPROAMI:
           us-east-1:
-            AMI: ami-7c313514
+            AMI: ami-e88e8a80
       resources:
         EgressSecurityGroup:
           template: security_group.yaml
@@ -227,10 +235,16 @@ unpro:
           variables:
             description: Allow mumble ports
             ingress_rules:
-              - protocol: -1
+              - protocol: tcp
                 port: 64738
                 cidr: {Ref: VPCCidr}
-              - protocol: -1
+              - protocol: tcp
+                port: 64738
+                cidr: {Ref: VPNCidr}
+              - protocol: udp
+                port: 64738
+                cidr: {Ref: VPCCidr}
+              - protocol: udp
                 port: 64738
                 cidr: {Ref: VPNCidr}
         MumbleNetworkInterface:

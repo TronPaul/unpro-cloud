@@ -5,9 +5,9 @@ dependsOn: {{depends_on}}
 properties:
   HostedZoneName: {{zone}}
   Name: {{name}}
-  Type: CNAME
+  Type: {{type}}
   TTL: 60
   ResourceRecords:
   - Fn::GetAtt:
       - {{instance}}
-      - PrivateDnsName
+      - {{property}}

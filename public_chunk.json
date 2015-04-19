@@ -1,4 +1,24 @@
 {
+  "VPC" : {
+    "Type" : "AWS::EC2::VPC",
+    "Properties" : {
+      "CidrBlock" : { "Ref" : "VPCCidr" },
+      "EnableDnsHostnames" : "true",
+      "Tags" : [
+        { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+        { "Key" : "Network", "Value" : "Public" }
+      ]
+    }
+  },
+
+  "TeamUnproHostedZone": {
+    "Type": "AWS::Route53::HostedZone",
+    "Properties": {
+      "Name": "teamunpro.",
+      "VPCS": [ { "Ref": "VPC" } ]
+    }
+  },
+
   "InternetGateway" : {
     "Type" : "AWS::EC2::InternetGateway",
     "Properties" : {
@@ -27,15 +47,6 @@
     }
   },
 
-  "NATEIPAssociation" : {
-    "Type" : "AWS::EC2::EIPAssociation",
-    "DependsOn" : "GatewayToInternet",
-    "Properties" : {
-      "AllocationId" : { "Ref" : "NATEIPAllocationId" },
-      "NetworkInterfaceId" : { "Ref" : "NATNetworkInterface" }
-    }
-  },
-
   "NATAllowICMP" : {
     "Type" : "AWS::EC2::SecurityGroupIngress",
     "Properties" : {
@@ -44,18 +55,6 @@
 	"FromPort" : "-1",  
 	"ToPort" : "-1",  
 	"SourceSecurityGroupId" : { "Ref" : "NATSecurityGroup" }
-    }
-  },
-
-  "NATPublicDNSRecord" : {
-    "Type" : "AWS::Route53::RecordSet",
-    "DependsOn" : "NATEIPAssociation",
-    "Properties" : {
-      "HostedZoneName" : "teamunpro.com.",
-      "Name" : "teamunpro.com",
-      "Type" : "A",
-      "TTL" : "60",
-      "ResourceRecords" : [ {"Fn::GetAtt" : [ "NATInstance", "PublicIp" ] } ]
     }
   }
 }

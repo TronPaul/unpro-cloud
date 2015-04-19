@@ -1,0 +1,8 @@
+type: AWS::EC2::EIPAssociation
+{% if depends_on %}
+dependsOn: {{depends_on}}
+{% endif %}
+properties:
+  AllocationId:
+    Ref: {{alloc_id}}
+  NetworkInterface: {{interface}}

@@ -2,7 +2,9 @@ type: AWS::EC2::NetworkInterface
 properties:
   SubnetId:
     Ref: {{subnet}}
+{% if ip_address %}
   PrivateIpAddress: {{ip_address}}
+{% endif %}
   GroupSet:
 {% for group in security_groups %}
     - Ref: {{group}}

@@ -2,8 +2,8 @@ unpro:
   template_path: templates
   region: us-east-1
   stacks:
-    vpc:
-      description: unpro VPC stack
+    public-subnet:
+      description: unpro public stack
       parameters:
         KeyName:
           description: Name of an existing EC2 KeyPair to enable SSH access to the instances
@@ -13,10 +13,6 @@ unpro:
           allowedPattern: '[-_ a-zA-Z0-9]*'
           constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
           default: teamunpro
-        VPC:
-          description: VPC reference
-          type: String
-          default: vpc-d7772eb2
         VPCCidr:
           description: VPC Cidr
           type: String
@@ -24,7 +20,15 @@ unpro:
         NATEIPAllocationId:
           description: EIPAllocationId to use for the NAT
           type: String
-          default: eipalloc-a4f14fc1
+          default: eipalloc-a2f092c7
+        MumbleEIPAllocationId:
+          description: EIPAllocationId to use for the NAT
+          type: String
+          default: eipalloc-a3f092c6
+        App01EIPAllocationId:
+          description: EIPAllocationId to use for the NAT
+          type: String
+          default: eipalloc-a2f092c7
         PublicSubnetCidr:
           description: Address range for a public subnet to be created in AZ.
           type: String
@@ -44,15 +48,40 @@ unpro:
             - m3.medium
             - m3.large
           constraintDescription: must be a valid EC2 instance type.
+        MumbleNodeInstanceType:
+          description: Instance type for Mumble nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+        AppNodeInstanceType:
+          description: Instance type for app nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
         AvailablityZone:
           description: AZ to use for PublicSubnet/PrivateSubnet.
           type: String
           default: us-east-1c
       mappings:
+        UNPROAMI:
+          us-east-1:
+            AMI: ami-e88e8a80
         NATAMI:
           us-east-1:
             AMI: ami-6e9e4b06
-      resource_chunk: vpc_chunk.json
+      resource_chunk: public_chunk.json
       resources:
         PublicSubnet:
           template: subnet.yaml.jinja
@@ -86,33 +115,41 @@ unpro:
           template: route_table_assoc.yaml.jinja
           variables:
             prefix: Private
+        EgressSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow all outbound traffic
+            egress_rules:
+              - protocol: -1
+        PublicSSHSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow SSH from local nodes
+            ingress_rules:
+              - protocol: tcp
+                port: 22
         NATSecurityGroup:
           template: security_group.yaml.jinja
           variables:
             description: Allow service ports for private subnets.
             ingress_rules:
-              - protocol: tcp
-                port: 22
-              - protocol: tcp
-                port: 6667
-              - protocol: tcp
-                port: 64738
-              - protocol: udp
-                port: 64738
-              - protocol: udp
-                port: 1194
               - protocol: -1
-                cidr: {Ref: VPCCidr}
-            egress_rules:
-              - protocol: -1
+                cidr: {Ref: PrivateSubnetCidr}
         NATNetworkInterface:
           template: network_interface.yaml.jinja
           variables:
-            ip_address: 10.0.0.5
             subnet: PublicSubnet
             security_groups:
               - NATSecurityGroup
+              - PublicSSHSecurityGroup
+              - EgressSecurityGroup
             source_dest: false
+        NATEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: NATEIPAllocationId
+            interface: NATNetworkInterface
         NATInstanceProfile:
           template: instance_profile.yaml.jinja
           variables:
@@ -134,10 +171,124 @@ unpro:
           template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
+            type: CNAME
             name: nat.teamunpro.
             instance: NATInstance
-    instances:
-      description: unpro instances stack
+            property: PrivateDnsName
+        MumbleSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow mumble ports
+            ingress_rules:
+              - protocol: tcp
+                port: 64738
+              - protocol: udp
+                port: 64738
+        MumbleNetworkInterface:
+          template: network_interface.yaml.jinja
+          variables:
+            subnet: PublicSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - PublicSSHSecurityGroup
+              - MumbleSecurityGroup
+        MumbleEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: MumbleEIPAllocationId
+            interface: MumbleNetworkInterface
+        MumbleInstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - MumbleInstance
+        MumbleInstance:
+          template: instance.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: MumbleNodeInstanceType
+            instance_profile: MumbleInstanceProfile
+            network_interfaces:
+              - MumbleNetworkInterface
+            image_map: UNPROAMI
+            name: mumble
+            roles:
+              - voice_server
+            has_salt: True
+        MumblePrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone: teamunpro.
+            type: CNAME
+            name: mumble.teamunpro.
+            instance: MumbleInstance
+            property: PrivateDnsName
+        MumblePublicDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone: teamunpro.com
+            type: A
+            name: mumble.teamunpro.com
+            instance: MumbleInstance
+            property: PublicIp
+        IrcSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow VPN traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 6667
+        App01NetworkInterface:
+          template: network_interface.yaml.jinja
+          variables:
+            subnet: PublicSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - PublicSSHSecurityGroup
+              - IrcSecurityGroup
+        App01EIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: App01EIPAllocationId
+            interface: App01NetworkInterface
+        App01InstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - App01Instance
+        App01Instance:
+          template: instance.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: AppNodeInstanceType
+            instance_profile: App01InstanceProfile
+            network_interfaces:
+              - App01NetworkInterface
+            image_map: UNPROAMI
+            name: app-01
+            roles:
+             - irc_bouncer
+            has_salt: True
+        App01PrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone: teamunpro.
+            type: CNAME
+            name: app-01.teamunpro.
+            instance: App01Instance
+            property: PrivateDnsName
+        ZncPublicDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone: teamunpro.com
+            type: A
+            name: znc.teamunpro.com
+            instance: App01Instance
+            property: PublicIp
+    vpn:
+      description: unpro vpn stack
       parameters:
         KeyName:
           description: Name of an existing EC2 KeyPair to enable SSH access to the instances
@@ -147,30 +298,39 @@ unpro:
           allowedPattern: '[-_ a-zA-Z0-9]*'
           constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
           default: teamunpro
+        VPNEIPAllocationId:
+          description: EIPAllocationId to use for the VPN
+          type: String
+          default: eipalloc-bdf092d8
         VPC:
           type: String
           source:
-            stack: vpc
-            type: parameter
-        VPCCidr:
+            stack: public-subnet
+            type: resource
+        PublicSubnet:
           type: String
           source:
-            stack: vpc
-            type: parameter
-        PrivateSubnet:
-          type: String
-          source:
-            stack: vpc
+            stack: public-subnet
             type: resource
         PrivateRouteTable:
           type: String
           source:
-            stack: vpc
+            stack: public-subnet
             type: resource
         PublicRouteTable:
           type: String
           source:
-            stack: vpc
+            stack: public-subnet
+            type: resource
+        PublicSSHSecurityGroup:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        EgressSecurityGroup:
+          type: String
+          source:
+            stack: public-subnet
             type: resource
         VPNCidr: 
           type: String
@@ -186,109 +346,21 @@ unpro:
             - m3.medium
             - m3.large
           constraintDescription: must be a valid EC2 instance type.
-        MumbleNodeInstanceType:
-          description: Instance type for Mumble nodes.
-          type: String
-          default: t2.micro
-          allowedValues:
-            - t2.micro
-            - t2.small
-            - t2.medium
-            - m3.medium
-            - m3.large
-          constraintDescription: must be a valid EC2 instance type.
-        AppNodeInstanceType:
-          description: Instance type for app nodes.
-          type: String
-          default: t2.micro
-          allowedValues:
-            - t2.micro
-            - t2.small
-            - t2.medium
-            - m3.medium
-            - m3.large
-          constraintDescription: must be a valid EC2 instance type.
       mappings:
         UNPROAMI:
           us-east-1:
             AMI: ami-e88e8a80
       resources:
-        EgressSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow all outbound traffic
-            egress_rules:
-              - protocol: -1
-        SSHSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow SSH from local nodes
-            ingress_rules:
-              - protocol: tcp
-                port: 22
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 22
-                cidr: {Ref: VPNCidr}
-        MumbleSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow mumble ports
-            ingress_rules:
-              - protocol: tcp
-                port: 64738
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 64738
-                cidr: {Ref: VPNCidr}
-              - protocol: udp
-                port: 64738
-                cidr: {Ref: VPCCidr}
-              - protocol: udp
-                port: 64738
-                cidr: {Ref: VPNCidr}
-        MumbleNetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            ip_address: 10.0.1.5
-            subnet: PrivateSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - SSHSecurityGroup
-              - MumbleSecurityGroup
-        MumbleInstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - MumbleInstance
-        MumbleInstance:
-          template: instance.yaml.jinja
-          variables:
-            instance_type: MumbleNodeInstanceType
-            instance_profile: MumbleInstanceProfile
-            network_interfaces:
-              - MumbleNetworkInterface
-            image_map: UNPROAMI
-            name: mumble
-            roles:
-              - voice_server
-            has_salt: True
-        MumblePrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone: teamunpro.
-            name: mumble.teamunpro.
-            instance: MumbleInstance
         VPNPublicRoute:
           template: route.yaml.jinja
           variables:
-            dest_cidr: 10.1.0.0/24
+            dest_cidr: {Ref: VPNCidr}
             route_table: PublicRouteTable
             network_interface: VPNNetworkInterface
         VPNPrivateRoute:
           template: route.yaml.jinja
           variables:
-            dest_cidr: 10.1.0.0/24
+            dest_cidr: {Ref: VPNCidr}
             route_table: PrivateRouteTable
             network_interface: VPNNetworkInterface
         VPNSecurityGroup:
@@ -301,12 +373,16 @@ unpro:
         VPNNetworkInterface:
           template: network_interface.yaml.jinja
           variables:
-            ip_address: 10.0.1.6
-            subnet: PrivateSubnet
+            subnet: PublicSubnet
             security_groups:
               - EgressSecurityGroup
-              - SSHSecurityGroup
+              - PublicSSHSecurityGroup
               - VPNSecurityGroup
+        VPNEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            alloc_id: VPNEIPAllocationId
+            interface: VPNNetworkInterface
         VPNInstanceProfile:
           template: instance_profile.yaml.jinja
           variables:
@@ -328,44 +404,15 @@ unpro:
           template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
+            type: CNAME
             name: vpn.teamunpro.
             instance: VPNInstance
-        IrcSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow VPN traffic
-            ingress_rules:
-              - protocol: tcp
-                port: 6667
-        App01NetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            ip_address: 10.0.1.7
-            subnet: PrivateSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - SSHSecurityGroup
-              - IrcSecurityGroup
-        App01InstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - App01Instance
-        App01Instance:
-          template: instance.yaml.jinja
-          variables:
-            instance_type: AppNodeInstanceType
-            instance_profile: App01InstanceProfile
-            network_interfaces:
-              - App01NetworkInterface
-            image_map: UNPROAMI
-            name: app-01
-            roles:
-             - irc_bouncer
-            has_salt: True
-        App01PrivateDNSRecord:
+            property: PrivateDnsName
+        ZncPublicDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.
-            name: app-01.teamunpro.
-            instance: App01Instance
+            zone: teamunpro.com
+            type: A
+            name: vpn.teamunpro.com
+            instance: VPNInstance
+            property: PublicIp

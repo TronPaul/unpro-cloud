@@ -55,39 +55,39 @@ unpro:
       resource_chunk: vpc_chunk.json
       resources:
         PublicSubnet:
-          template: subnet.yaml
+          template: subnet.yaml.jinja
           variables:
             cidr_name: PublicSubnetCidr
             network: Public
         PrivateSubnet:
-          template: subnet.yaml
+          template: subnet.yaml.jinja
           variables:
             cidr_name: PrivateSubnetCidr
             network: Private
         PublicRouteTable:
-          template: route_table.yaml
+          template: route_table.yaml.jinja
           variables:
             network: Public
         PrivateRouteTable:
-          template: route_table.yaml
+          template: route_table.yaml.jinja
           variables:
             network: Private
         PrivateRoute:
-          template: route.yaml
+          template: route.yaml.jinja
           variables:
             dest_cidr: 0.0.0.0/0
             route_table: PrivateRouteTable
             network_interface: NATNetworkInterface
         PublicSubnetRTAssoc:
-          template: route_table_assoc.yaml
+          template: route_table_assoc.yaml.jinja
           variables:
             prefix: Public
         PrivateSubnetRTAssoc:
-          template: route_table_assoc.yaml
+          template: route_table_assoc.yaml.jinja
           variables:
             prefix: Private
         NATSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow service ports for private subnets.
             ingress_rules:
@@ -106,7 +106,7 @@ unpro:
             egress_rules:
               - protocol: -1
         NATNetworkInterface:
-          template: network_interface.yaml
+          template: network_interface.yaml.jinja
           variables:
             ip_address: 10.0.0.5
             subnet: PublicSubnet
@@ -114,12 +114,12 @@ unpro:
               - NATSecurityGroup
             source_dest: false
         NATInstanceProfile:
-          template: instance_profile.yaml
+          template: instance_profile.yaml.jinja
           variables:
             roles:
               - NATInstance
         NATInstance:
-          template: instance.yaml
+          template: instance.yaml.jinja
           variables:
             depends_on: GatewayToInternet
             instance_type: NATNodeInstanceType
@@ -131,7 +131,7 @@ unpro:
             roles:
               - aws_nat
         NATPrivateDNSRecord:
-          template: dns_record.yaml
+          template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
             name: nat.teamunpro.
@@ -214,13 +214,13 @@ unpro:
             AMI: ami-e88e8a80
       resources:
         EgressSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow all outbound traffic
             egress_rules:
               - protocol: -1
         SSHSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow SSH from local nodes
             ingress_rules:
@@ -231,7 +231,7 @@ unpro:
                 port: 22
                 cidr: {Ref: VPNCidr}
         MumbleSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow mumble ports
             ingress_rules:
@@ -248,7 +248,7 @@ unpro:
                 port: 64738
                 cidr: {Ref: VPNCidr}
         MumbleNetworkInterface:
-          template: network_interface.yaml
+          template: network_interface.yaml.jinja
           variables:
             ip_address: 10.0.1.5
             subnet: PrivateSubnet
@@ -257,12 +257,12 @@ unpro:
               - SSHSecurityGroup
               - MumbleSecurityGroup
         MumbleInstanceProfile:
-          template: instance_profile.yaml
+          template: instance_profile.yaml.jinja
           variables:
             roles:
               - MumbleInstance
         MumbleInstance:
-          template: instance.yaml
+          template: instance.yaml.jinja
           variables:
             instance_type: MumbleNodeInstanceType
             instance_profile: MumbleInstanceProfile
@@ -272,33 +272,34 @@ unpro:
             name: mumble
             roles:
               - voice_server
+            has_salt: True
         MumblePrivateDNSRecord:
-          template: dns_record.yaml
+          template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
             name: mumble.teamunpro.
             instance: MumbleInstance
         VPNPublicRoute:
-          template: route.yaml
+          template: route.yaml.jinja
           variables:
             dest_cidr: 10.1.0.0/24
             route_table: PublicRouteTable
             network_interface: VPNNetworkInterface
         VPNPrivateRoute:
-          template: route.yaml
+          template: route.yaml.jinja
           variables:
             dest_cidr: 10.1.0.0/24
             route_table: PrivateRouteTable
             network_interface: VPNNetworkInterface
         VPNSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow VPN traffic
             ingress_rules:
               - protocol: udp
                 port: 1194
         VPNNetworkInterface:
-          template: network_interface.yaml
+          template: network_interface.yaml.jinja
           variables:
             ip_address: 10.0.1.6
             subnet: PrivateSubnet
@@ -307,12 +308,12 @@ unpro:
               - SSHSecurityGroup
               - VPNSecurityGroup
         VPNInstanceProfile:
-          template: instance_profile.yaml
+          template: instance_profile.yaml.jinja
           variables:
             roles:
               - VPNInstance
         VPNInstance:
-          template: instance.yaml
+          template: instance.yaml.jinja
           variables:
             instance_type: VPNNodeInstanceType
             instance_profile: VPNInstanceProfile
@@ -322,21 +323,22 @@ unpro:
             name: vpn
             roles:
              - vpn_server
+            has_salt: True
         VPNPrivateDNSRecord:
-          template: dns_record.yaml
+          template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
             name: vpn.teamunpro.
             instance: VPNInstance
         IrcSecurityGroup:
-          template: security_group.yaml
+          template: security_group.yaml.jinja
           variables:
             description: Allow VPN traffic
             ingress_rules:
               - protocol: tcp
                 port: 6667
         App01NetworkInterface:
-          template: network_interface.yaml
+          template: network_interface.yaml.jinja
           variables:
             ip_address: 10.0.1.7
             subnet: PrivateSubnet
@@ -345,12 +347,12 @@ unpro:
               - SSHSecurityGroup
               - IrcSecurityGroup
         App01InstanceProfile:
-          template: instance_profile.yaml
+          template: instance_profile.yaml.jinja
           variables:
             roles:
               - App01Instance
         App01Instance:
-          template: instance.yaml
+          template: instance.yaml.jinja
           variables:
             instance_type: AppNodeInstanceType
             instance_profile: App01InstanceProfile
@@ -360,8 +362,9 @@ unpro:
             name: app-01
             roles:
              - irc_bouncer
+            has_salt: True
         App01PrivateDNSRecord:
-          template: dns_record.yaml
+          template: dns_record.yaml.jinja
           variables:
             zone: teamunpro.
             name: app-01.teamunpro.

@@ -34,6 +34,13 @@ properties:
       Fn::Join:
         - ""
         -
-          - '#!/bin/bash -v\n'
-          - 'wget -O bootstrap-unpro.sh https://raw.githubusercontent.com/TronPaul/unpro-salt/master/bootstrap-unpro-salt\n'
-          - 'sh ./bootstrap-unpro.sh -i {{name}}\n'
+          - '#cloud-config\n'
+          - 'repo_update: true\n'
+          - 'runcmd:\n'
+{% if has_salt %}
+          - ' - /usr/local/bin/salt-up\n'
+{% else %}
+          - ' - wget -O bootstrap-unpro.sh https://raw.githubusercontent.com/TronPaul/unpro-salt/master/bootstrap-unpro-salt\n'
+          - ' - sh ./bootstrap-unpro.sh -i {{name}}\n'
+{% endif %}
+          - 'output: { all : ''| tee -a /var/log/cloud-init-output.log'' }\n'

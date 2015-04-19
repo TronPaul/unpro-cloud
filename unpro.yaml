@@ -189,8 +189,8 @@ unpro:
             - m3.medium
             - m3.large
           constraintDescription: must be a valid EC2 instance type.
-        WWWNodeInstanceType:
-          description: Instance type for WWW nodes.
+        AppNodeInstanceType:
+          description: Instance type for app nodes.
           type: String
           default: t2.micro
           allowedValues:
@@ -203,7 +203,7 @@ unpro:
       mappings:
         UNPROAMI:
           us-east-1:
-            AMI: ami-924a70fa
+            AMI: ami-7c313514
       resources:
         EgressSecurityGroup:
           template: security_group.yaml
@@ -246,7 +246,7 @@ unpro:
           template: instance_profile.yaml
           variables:
             roles:
-              - S3Backup
+              - MumbleInstance
         MumbleInstance:
           template: instance.yaml
           variables:
@@ -296,7 +296,7 @@ unpro:
           template: instance_profile.yaml
           variables:
             roles:
-              - VPNCACert
+              - VPNInstance
         VPNInstance:
           template: instance.yaml
           variables:
@@ -314,3 +314,41 @@ unpro:
             zone: teamunpro.
             name: vpn.teamunpro.
             instance: VPNInstance
+        IrcSecurityGroup:
+          template: security_group.yaml
+          variables:
+            description: Allow VPN traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 6667
+        App01NetworkInterface:
+          template: network_interface.yaml
+          variables:
+            ip_address: 10.0.1.7
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - SSHSecurityGroup
+              - IrcSecurityGroup
+        App01InstanceProfile:
+          template: instance_profile.yaml
+          variables:
+            roles:
+              - App01Instance
+        App01Instance:
+          template: instance.yaml
+          variables:
+            instance_type: AppNodeInstanceType
+            instance_profile: App01InstanceProfile
+            network_interfaces:
+              - App01NetworkInterface
+            image_map: UNPROAMI
+            name: app-01
+            roles:
+             - irc_bouncer
+        App01PrivateDNSRecord:
+          template: dns_record.yaml
+          variables:
+            zone: teamunpro.
+            name: app-01.teamunpro.
+            instance: App01Instance

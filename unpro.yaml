@@ -508,6 +508,7 @@ unpro:
         UNPROAMI:
           us-east-1:
             AMI: ami-e88e8a80
+      resource_chunk: sensu_chunk.json
       resources:
         RabbitMqSecurityGroup:
           template: security_group.yaml.jinja

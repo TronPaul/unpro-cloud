@@ -1,0 +1,34 @@
+{
+  "SubnetGroup": {
+    "Type": "AWS::ElastiCache::SubnetGroup",
+    "Properties": {
+      "Description": "Cache Subnet Group",
+      "SubnetIds": [ { "Ref": "PrivateSubnet" } ]
+    }
+  },
+
+  "ElasticacheSecurityGroup": {
+    "Type": "AWS::EC2::SecurityGroup",
+    "Properties": {
+      "GroupDescription": "Elasticache Security Group",
+      "SecurityGroupIngress": [ {
+        "IpProtocol": "tcp",
+        "FromPort": 6379,
+        "ToPort": 6379
+      } ],
+      "VpcId": { "Ref": "VPC" }
+    }
+  },
+
+  "ElasticacheCluster": {
+    "Type": "AWS::ElastiCache::CacheCluster",
+    "Properties": {
+      "AutoMinorVersionUpgrade": "true",
+      "CacheNodeType": "cache.t2.micro",
+      "Engine": "redis",
+      "NumCacheNodes": "1",
+      "PreferredAvailabilityZone": "us-east-1c",
+      "VpcSecurityGroupIds": [{"Ref": "ElasticacheSecurityGroup"}]
+    }
+  }
+}

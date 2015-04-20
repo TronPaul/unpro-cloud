@@ -12,3 +12,10 @@ properties:
 {% if source_dest is defined %}
   SourceDestCheck: {{source_dest}}
 {% endif %}
+{% if tags %}
+  Tags:
+{% for k, v in tags.items() %}
+    - Key: {{k}}
+      Value: {{v}}
+{% endfor %}
+{% endif %}

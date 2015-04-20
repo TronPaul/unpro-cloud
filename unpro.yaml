@@ -16,17 +16,17 @@ unpro:
         VPCCidr:
           description: VPC Cidr
           type: String
-          default: 10.0.0.0/16 #TODO: pull this from aws when its supported
+          default: 10.0.0.0/16
         NATEIPAllocationId:
           description: EIPAllocationId to use for the NAT
           type: String
           default: eipalloc-a4f14fc1
         MumbleEIPAllocationId:
-          description: EIPAllocationId to use for the NAT
+          description: EIPAllocationId to use for mumble
           type: String
           default: eipalloc-a3f092c6
         App01EIPAllocationId:
-          description: EIPAllocationId to use for the NAT
+          description: EIPAllocationId to use for the App01 (znc)
           type: String
           default: eipalloc-a2f092c7
         PublicSubnetCidr:
@@ -34,7 +34,7 @@ unpro:
           type: String
           default: 10.0.0.0/24
         PrivateSubnetCidr:
-          description: Address range for a public subnet to be created in AZ.
+          description: Address range for a private subnet to be created in AZ.
           type: String
           default: 10.0.1.0/24
         NATNodeInstanceType:
@@ -124,14 +124,22 @@ unpro:
         PublicSSHSecurityGroup:
           template: security_group.yaml.jinja
           variables:
+            description: Allow SSH from remote
+            ingress_rules:
+              - protocol: tcp
+                port: 22
+        InternalSSHSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
             description: Allow SSH from local nodes
             ingress_rules:
               - protocol: tcp
                 port: 22
+                cidr: {Ref: VPCCidr}
         NATSecurityGroup:
           template: security_group.yaml.jinja
           variables:
-            description: Allow service ports for private subnets.
+            description: Allow nat traffic
             ingress_rules:
               - protocol: -1
                 cidr: {Ref: PrivateSubnetCidr}
@@ -144,6 +152,8 @@ unpro:
               - PublicSSHSecurityGroup
               - EgressSecurityGroup
             source_dest: false
+            tags:
+              Network: Public
         NATEIPAssociation:
           template: eip_association.yaml.jinja
           variables:
@@ -167,6 +177,8 @@ unpro:
             name: nat
             roles:
               - aws_nat
+            tags:
+              Network: Public
         NATPrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
@@ -190,8 +202,10 @@ unpro:
             subnet: PublicSubnet
             security_groups:
               - EgressSecurityGroup
-              - PublicSSHSecurityGroup
+              - PrivateSSHSecurityGroup
               - MumbleSecurityGroup
+            tags:
+              Network: Public
         MumbleEIPAssociation:
           template: eip_association.yaml.jinja
           variables:
@@ -216,6 +230,8 @@ unpro:
             roles:
               - voice_server
             has_salt: True
+            tags:
+              Network: Public
         MumblePrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
@@ -236,7 +252,7 @@ unpro:
         IrcSecurityGroup:
           template: security_group.yaml.jinja
           variables:
-            description: Allow VPN traffic
+            description: Allow ZNC traffic
             ingress_rules:
               - protocol: tcp
                 port: 6667
@@ -246,8 +262,10 @@ unpro:
             subnet: PublicSubnet
             security_groups:
               - EgressSecurityGroup
-              - PublicSSHSecurityGroup
+              - PrivateSSHSecurityGroup
               - IrcSecurityGroup
+            tags:
+              Network: Public
         App01EIPAssociation:
           template: eip_association.yaml.jinja
           variables:
@@ -272,6 +290,8 @@ unpro:
             roles:
              - irc_bouncer
             has_salt: True
+            tags:
+              Network: Public
         App01PrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
@@ -328,7 +348,7 @@ unpro:
           source:
             stack: public-subnet
             type: resource
-        PublicSSHSecurityGroup:
+        PrivateSSHSecurityGroup:
           type: String
           source:
             stack: public-subnet
@@ -382,8 +402,10 @@ unpro:
             subnet: PublicSubnet
             security_groups:
               - EgressSecurityGroup
-              - PublicSSHSecurityGroup
+              - PrivateSSHSecurityGroup
               - VPNSecurityGroup
+            tags:
+              Network: Public
         VPNEIPAssociation:
           template: eip_association.yaml.jinja
           variables:
@@ -406,6 +428,8 @@ unpro:
             roles:
              - vpn_server
             has_salt: True
+            tags:
+              Network: Public
         VPNPrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:

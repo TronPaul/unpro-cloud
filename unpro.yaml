@@ -523,7 +523,7 @@ unpro:
                 port: 4369
               - protocol: tcp
                 port: 25672
-        RabbitMqNetworkInterface:
+        RabbitMq01NetworkInterface:
           template: network_interface.yaml.jinja
           variables:
             subnet: PrivateSubnet
@@ -533,12 +533,12 @@ unpro:
               - RabbitMqSecurityGroup
             tags:
               Network: Private
-        RabbitMqInstance:
+        RabbitMq01Instance:
           template: instance.yaml.jinja
           variables:
             instance_type: RabbitMqNodeInstanceType
             network_interfaces:
-              - RabbitMqNetworkInterface
+              - RabbitMq01NetworkInterface
             image_map: UNPROAMI
             name: rabbitmq-01
             roles:
@@ -546,11 +546,11 @@ unpro:
             has_salt: True
             tags:
               Network: Private
-        RabbitMqPrivateDNSRecord:
+        RabbitMq01PrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
             zone_ref: TeamUnproHostedZone
             type: CNAME
             name: rabbitmq-01.teamunpro.
-            instance: RabbitMqInstance
+            instance: RabbitMq01Instance
             property: PrivateDnsName

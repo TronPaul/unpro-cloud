@@ -15,7 +15,10 @@
     "Type": "AWS::Route53::HostedZone",
     "Properties": {
       "Name": "teamunpro.",
-      "VPCS": [ { "Ref": "VPC" } ]
+      "VPCs": [ {
+        "VPCId": { "Ref": "VPC" }, 
+        "VPCRegion": { "Ref" : "AWS::Region" }
+      } ]
     }
   },
 

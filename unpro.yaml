@@ -20,7 +20,7 @@ unpro:
         NATEIPAllocationId:
           description: EIPAllocationId to use for the NAT
           type: String
-          default: eipalloc-a2f092c7
+          default: eipalloc-a4f14fc1
         MumbleEIPAllocationId:
           description: EIPAllocationId to use for the NAT
           type: String
@@ -170,7 +170,7 @@ unpro:
         NATPrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.
+            zone_ref: TeamUnproHostedZone
             type: CNAME
             name: nat.teamunpro.
             instance: NATInstance
@@ -219,7 +219,8 @@ unpro:
         MumblePrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.
+            zone_: teamunpro.
+            zone_ref: TeamUnproHostedZone
             type: CNAME
             name: mumble.teamunpro.
             instance: MumbleInstance
@@ -227,7 +228,7 @@ unpro:
         MumblePublicDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.com
+            zone_name: teamunpro.com.
             type: A
             name: mumble.teamunpro.com
             instance: MumbleInstance
@@ -274,7 +275,7 @@ unpro:
         App01PrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.
+            zone_ref: TeamUnproHostedZone
             type: CNAME
             name: app-01.teamunpro.
             instance: App01Instance
@@ -282,7 +283,7 @@ unpro:
         ZncPublicDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.com
+            zone_name: teamunpro.com.
             type: A
             name: znc.teamunpro.com
             instance: App01Instance
@@ -318,6 +319,11 @@ unpro:
             stack: public-subnet
             type: resource
         PublicRouteTable:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        TeamUnproHostedZone:
           type: String
           source:
             stack: public-subnet
@@ -403,15 +409,15 @@ unpro:
         VPNPrivateDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.
+            zone_ref: TeamUnproHostedZone
             type: CNAME
             name: vpn.teamunpro.
             instance: VPNInstance
             property: PrivateDnsName
-        ZncPublicDNSRecord:
+        VPNPublicDNSRecord:
           template: dns_record.yaml.jinja
           variables:
-            zone: teamunpro.com
+            zone_name: teamunpro.com.
             type: A
             name: vpn.teamunpro.com
             instance: VPNInstance

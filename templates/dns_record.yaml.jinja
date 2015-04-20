@@ -3,7 +3,13 @@ type: AWS::Route53::RecordSet
 dependsOn: {{depends_on}}
 {% endif %}
 properties:
-  HostedZoneName: {{zone}}
+{% if zone_name %}
+  HostedZoneName: {{zone_name}}
+{% endif %}
+{% if zone_ref %}
+  HostedZoneId:
+    Ref: {{zone_ref}}
+{% endif %}
   Name: {{name}}
   Type: {{type}}
   TTL: 60

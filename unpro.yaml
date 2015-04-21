@@ -128,7 +128,7 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 22
-        InternalSSHSecurityGroup:
+        PrivateSSHSecurityGroup:
           template: security_group.yaml.jinja
           variables:
             description: Allow SSH from local nodes
@@ -446,3 +446,151 @@ unpro:
             name: vpn.teamunpro.com
             instance: VPNInstance
             property: PublicIp
+    sensu:
+      description: unpro sensu stack
+      parameters:
+        KeyName:
+          description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+          type: String
+          minLength: 1
+          maxLength: 64
+          allowedPattern: '[-_ a-zA-Z0-9]*'
+          constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
+          default: teamunpro
+        VPC:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        PrivateSubnet:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        TeamUnproHostedZone:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        PrivateSSHSecurityGroup:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        EgressSecurityGroup:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        RabbitMqNodeInstanceType:
+          description: Instance type for VPN nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+        SensuNodeInstanceType:
+          description: Instance type for VPN nodes.
+          type: String
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
+      mappings:
+        UNPROAMI:
+          us-east-1:
+            AMI: ami-e88e8a80
+      resource_chunk: sensu_chunk.json
+      resources:
+        RabbitMqSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow rabbitmq traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 5672
+              - protocol: tcp
+                port: 15672
+              - protocol: tcp
+                port: 4369
+              - protocol: tcp
+                port: 25672
+        RabbitMq01NetworkInterface:
+          template: network_interface.yaml.jinja
+          variables:
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - PrivateSSHSecurityGroup
+              - RabbitMqSecurityGroup
+            tags:
+              Network: Private
+        RabbitMq01Instance:
+          template: instance.yaml.jinja
+          variables:
+            instance_type: RabbitMqNodeInstanceType
+            network_interfaces:
+              - RabbitMq01NetworkInterface
+            image_map: UNPROAMI
+            name: rabbitmq-01
+            roles:
+             - rabbitmq
+            has_salt: True
+            tags:
+              Network: Private
+        RabbitMq01PrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: rabbitmq-01.teamunpro.
+            instance: RabbitMq01Instance
+            property: PrivateDnsName
+        SensuSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow rabbitmq traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 4567
+              - protocol: tcp
+                port: 8080
+        SensuNetworkInterface:
+          template: network_interface.yaml.jinja
+          variables:
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - PrivateSSHSecurityGroup
+              - SensuSecurityGroup
+            tags:
+              Network: Private
+        SensuInstance:
+          template: instance.yaml.jinja
+          variables:
+            instance_type: SensuNodeInstanceType
+            network_interfaces:
+              - SensuNetworkInterface
+            image_map: UNPROAMI
+            name: sensu
+            roles:
+             - monitor_master
+            has_salt: True
+            tags:
+              Network: Private
+        SensuPrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: sensu.teamunpro.
+            instance: SensuInstance
+            property: PrivateDnsName

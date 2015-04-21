@@ -128,7 +128,7 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 22
-        InternalSSHSecurityGroup:
+        PrivateSSHSecurityGroup:
           template: security_group.yaml.jinja
           variables:
             description: Allow SSH from local nodes
@@ -553,4 +553,44 @@ unpro:
             type: CNAME
             name: rabbitmq-01.teamunpro.
             instance: RabbitMq01Instance
+            property: PrivateDnsName
+        SensuSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow rabbitmq traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 4567
+              - protocol: tcp
+                port: 8080
+        SensuNetworkInterface:
+          template: network_interface.yaml.jinja
+          variables:
+            subnet: PrivateSubnet
+            security_groups:
+              - EgressSecurityGroup
+              - PrivateSSHSecurityGroup
+              - SensuSecurityGroup
+            tags:
+              Network: Private
+        SensuInstance:
+          template: instance.yaml.jinja
+          variables:
+            instance_type: SensuNodeInstanceType
+            network_interfaces:
+              - SensuNetworkInterface
+            image_map: UNPROAMI
+            name: sensu
+            roles:
+             - monitor_master
+            has_salt: True
+            tags:
+              Network: Private
+        SensuPrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: sensu.teamunpro.
+            instance: SensuInstance
             property: PrivateDnsName

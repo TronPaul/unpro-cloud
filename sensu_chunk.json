@@ -23,6 +23,7 @@
   "ElasticacheCluster": {
     "Type": "AWS::ElastiCache::CacheCluster",
     "Properties": {
+      "ClusterName": "sensu",
       "AutoMinorVersionUpgrade": "true",
       "CacheNodeType": "cache.t2.micro",
       "Engine": "redis",

@@ -24,11 +24,12 @@
     "Type": "AWS::ElastiCache::CacheCluster",
     "Properties": {
       "ClusterName": "sensu",
-      "AutoMinorVersionUpgrade": "true",
+      "CacheSubnetGroupName": {"Ref": "SubnetGroup"},
       "CacheNodeType": "cache.t2.micro",
       "Engine": "redis",
       "NumCacheNodes": "1",
       "PreferredAvailabilityZone": "us-east-1c",
+      "AutoMinorVersionUpgrade": "true",
       "VpcSecurityGroupIds": [{"Ref": "ElasticacheSecurityGroup"}]
     }
   }

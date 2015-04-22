@@ -13,14 +13,26 @@ unpro:
           allowedPattern: '[-_ a-zA-Z0-9]*'
           constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
           default: teamunpro
+        AvailablityZone:
+          description: AZ to use for PublicSubnet/PrivateSubnet.
+          type: String
+          default: us-east-1c
         VPCCidr:
           description: VPC Cidr
           type: String
           default: 10.0.0.0/16
+        VPNCidr: 
+          description: VPN Cidr
+          type: String
+          default: 10.1.0.0/24
         NATEIPAllocationId:
           description: EIPAllocationId to use for the NAT
           type: String
           default: eipalloc-a4f14fc1
+        VPNEIPAllocationId:
+          description: EIPAllocationId to use for the VPN
+          type: String
+          default: eipalloc-bdf092d8
         MumbleEIPAllocationId:
           description: EIPAllocationId to use for mumble
           type: String
@@ -70,10 +82,17 @@ unpro:
             - m3.medium
             - m3.large
           constraintDescription: must be a valid EC2 instance type.
-        AvailablityZone:
-          description: AZ to use for PublicSubnet/PrivateSubnet.
+        VPNNodeInstanceType:
+          description: Instance type for VPN nodes.
           type: String
-          default: us-east-1c
+          default: t2.micro
+          allowedValues:
+            - t2.micro
+            - t2.small
+            - t2.medium
+            - m3.medium
+            - m3.large
+          constraintDescription: must be a valid EC2 instance type.
       mappings:
         UNPROAMI:
           us-east-1:
@@ -128,6 +147,13 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 22
+        PublicICMPSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow ICMP from remote
+            ingress_rules:
+              - protocol: icmp
+                port: -1
         PrivateSSHSecurityGroup:
           template: security_group.yaml.jinja
           variables:
@@ -136,6 +162,20 @@ unpro:
               - protocol: tcp
                 port: 22
                 cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 22
+                cidr: {Ref: VPNCidr}
+        PrivateICMPSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow ICMP from local nodes
+            ingress_rules:
+              - protocol: icmp
+                port: -1
+                cidr: {Ref: VPCCidr}
+              - protocol: icmp
+                port: -1
+                cidr: {Ref: VPNCidr}
         NATSecurityGroup:
           template: security_group.yaml.jinja
           variables:
@@ -150,6 +190,7 @@ unpro:
             security_groups:
               - NATSecurityGroup
               - PublicSSHSecurityGroup
+              - PublicICMPSecurityGroup
               - EgressSecurityGroup
             source_dest: false
             tags:
@@ -203,6 +244,7 @@ unpro:
             security_groups:
               - EgressSecurityGroup
               - PrivateSSHSecurityGroup
+              - PublicICMPSecurityGroup
               - MumbleSecurityGroup
             tags:
               Network: Public
@@ -263,6 +305,7 @@ unpro:
             security_groups:
               - EgressSecurityGroup
               - PrivateSSHSecurityGroup
+              - PublicICMPSecurityGroup
               - IrcSecurityGroup
             tags:
               Network: Public
@@ -308,75 +351,6 @@ unpro:
             name: znc.teamunpro.com
             instance: App01Instance
             property: PublicIp
-    vpn:
-      description: unpro vpn stack
-      parameters:
-        KeyName:
-          description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-          type: String
-          minLength: 1
-          maxLength: 64
-          allowedPattern: '[-_ a-zA-Z0-9]*'
-          constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
-          default: teamunpro
-        VPNEIPAllocationId:
-          description: EIPAllocationId to use for the VPN
-          type: String
-          default: eipalloc-bdf092d8
-        VPC:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PublicSubnet:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PrivateRouteTable:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PublicRouteTable:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        TeamUnproHostedZone:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PrivateSSHSecurityGroup:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        EgressSecurityGroup:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        VPNCidr: 
-          type: String
-          default: 10.1.0.0/24
-        VPNNodeInstanceType:
-          description: Instance type for VPN nodes.
-          type: String
-          default: t2.micro
-          allowedValues:
-            - t2.micro
-            - t2.small
-            - t2.medium
-            - m3.medium
-            - m3.large
-          constraintDescription: must be a valid EC2 instance type.
-      mappings:
-        UNPROAMI:
-          us-east-1:
-            AMI: ami-1ad5d372
-      resources:
         VPNPublicRoute:
           template: route.yaml.jinja
           variables:
@@ -403,6 +377,7 @@ unpro:
             security_groups:
               - EgressSecurityGroup
               - PrivateSSHSecurityGroup
+              - PublicICMPSecurityGroup
               - VPNSecurityGroup
             tags:
               Network: Public
@@ -457,6 +432,16 @@ unpro:
           allowedPattern: '[-_ a-zA-Z0-9]*'
           constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
           default: teamunpro
+        VPCCidr:
+          type: String
+          source:
+            stack: public-subnet
+            type: parameter
+        VPNCidr:
+          type: String
+          source:
+            stack: public-subnet
+            type: parameter
         VPC:
           type: String
           source:
@@ -473,6 +458,11 @@ unpro:
             stack: public-subnet
             type: resource
         PrivateSSHSecurityGroup:
+          type: String
+          source:
+            stack: public-subnet
+            type: resource
+        PrivateICMPSecurityGroup:
           type: String
           source:
             stack: public-subnet
@@ -517,12 +507,28 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 5672
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 5672
+                cidr: {Ref: VPNCidr}
               - protocol: tcp
                 port: 15672
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 15672
+                cidr: {Ref: VPNCidr}
               - protocol: tcp
                 port: 4369
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 4369
+                cidr: {Ref: VPNCidr}
               - protocol: tcp
                 port: 25672
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 25672
+                cidr: {Ref: VPNCidr}
         RabbitMq01NetworkInterface:
           template: network_interface.yaml.jinja
           variables:
@@ -530,6 +536,7 @@ unpro:
             security_groups:
               - EgressSecurityGroup
               - PrivateSSHSecurityGroup
+              - PrivateICMPSecurityGroup
               - RabbitMqSecurityGroup
             tags:
               Network: Private
@@ -567,10 +574,22 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 4567
+                cidr: {Ref: VPCCidr}
+              - protocol: tcp
+                port: 4567
+                cidr: {Ref: VPNCidr}
               - protocol: tcp
                 port: 8080
+                cidr: {Ref: VPNCidr}
+              - protocol: tcp
+                port: 8080
+                cidr: {Ref: VPNCidr}
               - protocol: tcp
                 port: 3000
+                cidr: {Ref: VPNCidr}
+              - protocol: tcp
+                port: 3000
+                cidr: {Ref: VPCCidr}
         SensuNetworkInterface:
           template: network_interface.yaml.jinja
           variables:
@@ -578,6 +597,7 @@ unpro:
             security_groups:
               - EgressSecurityGroup
               - PrivateSSHSecurityGroup
+              - PrivateICMPSecurityGroup
               - SensuSecurityGroup
             tags:
               Network: Private

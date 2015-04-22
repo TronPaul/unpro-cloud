@@ -164,7 +164,7 @@ unpro:
           template: instance_profile.yaml.jinja
           variables:
             roles:
-              - NATInstance
+              - DefaultInstance
         NATInstance:
           template: instance.yaml.jinja
           variables:
@@ -533,10 +533,16 @@ unpro:
               - RabbitMqSecurityGroup
             tags:
               Network: Private
+        RabbitMq01InstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - DefaultInstance
         RabbitMq01Instance:
           template: instance.yaml.jinja
           variables:
             instance_type: RabbitMqNodeInstanceType
+            instance_profile: RabbitMq01InstanceProfile
             network_interfaces:
               - RabbitMq01NetworkInterface
             image_map: UNPROAMI
@@ -563,6 +569,8 @@ unpro:
                 port: 4567
               - protocol: tcp
                 port: 8080
+              - protocol: tcp
+                port: 3000
         SensuNetworkInterface:
           template: network_interface.yaml.jinja
           variables:
@@ -573,10 +581,16 @@ unpro:
               - SensuSecurityGroup
             tags:
               Network: Private
+        SensuInstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - DefaultInstance
         SensuInstance:
           template: instance.yaml.jinja
           variables:
             instance_type: SensuNodeInstanceType
+            instance_profile: SensuInstanceProfile
             network_interfaces:
               - SensuNetworkInterface
             image_map: UNPROAMI

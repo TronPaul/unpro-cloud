@@ -379,6 +379,7 @@ unpro:
               - PrivateSSHSecurityGroup
               - PublicICMPSecurityGroup
               - VPNSecurityGroup
+            source_dest: false
             tags:
               Network: Public
         VPNEIPAssociation:

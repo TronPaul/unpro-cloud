@@ -14,7 +14,8 @@
       "SecurityGroupIngress": [ {
         "IpProtocol": "tcp",
         "FromPort": 6379,
-        "ToPort": 6379
+        "ToPort": 6379,
+        "CidrIp": {"Ref": "VPCCidr"}
       } ],
       "VpcId": { "Ref": "VPC" }
     }

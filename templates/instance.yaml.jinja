@@ -11,17 +11,25 @@ properties:
   IamInstanceProfile:
     Ref: {{instance_profile}}
 {% endif %}
-  NetworkInterfaces:
-{% for ni in network_interfaces %}
-    - NetworkInterfaceId:
-        Ref: {{ni}}
-      DeviceIndex: {{loop.index0}}
-{% endfor %}
   ImageId:
     Fn::FindInMap:
       - {{image_map}}
       - Ref: AWS::Region
       - AMI
+{% if security_groups %}
+  SecurityGroupIds:
+    - Fn::GetAtt:
+        - VPC
+        - DefaultSecurityGroup
+{% for group in security_groups %}
+    - Ref: {{group}}
+{% endfor %}
+{% endif %}
+{% if source_dest is defined %}
+  SourceDestCheck: {{source_dest}}
+{% endif %}
+  SubnetId:
+    Ref: {{subnet}}
   Tags:
     - Key: Name
       Value: {{name}}
@@ -43,10 +51,11 @@ properties:
           - '#cloud-config\n'
           - 'repo_update: true\n'
           - 'runcmd:\n'
-{% if has_salt %}
-          - ' - /usr/local/bin/salt-up\n'
-{% else %}
-          - ' - wget -O bootstrap-unpro.sh https://raw.githubusercontent.com/TronPaul/unpro-salt/master/bootstrap-unpro-salt\n'
-          - ' - sh ./bootstrap-unpro.sh -i {{name}}\n'
+{% if not has_salt or salt_master %}
+          - ' - curl -L https://raw.githubusercontent.com/saltstack/salt-bootstrap/stable/bootstrap-salt.sh -o bootstrap-salt.sh\n'
+          - ' - sudo sh bootstrap-salt.sh -P -X {{ '-M' if salt_master else ''}} -i {{name}} git 2015.8\n'
+{% endif %}
+{% if salt_master %}
+          - " - \"sudo sed -i -e 's/^#auto_accept: False$/auto_accept: True/' /etc/salt/master\n\""
 {% endif %}
           - 'output: { all : ''| tee -a /var/log/cloud-init-output.log'' }\n'

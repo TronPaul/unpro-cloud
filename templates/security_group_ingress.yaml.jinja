@@ -1,0 +1,21 @@
+type: AWS::EC2::SecurityGroupIngress
+properties:
+  GroupId:
+    Fn::GetAtt:
+      - VPC
+      - DefaultSecurityGroup
+{% if protocol == -1 %}
+  IpProtocol: -1
+{% else %}
+  IpProtocol: {{protocol}}
+{% endif %}
+  FromPort: {{from_port if from_port else port if port else 0}}
+  ToPort: {{to_port if to_port else port if port else 65535}}
+{% if cidr_ref %}
+  CidrIp:
+    Ref: {{cidr_ref}}
+{% elif cidr %}
+  CidrIp: {{cidr}}
+{% else %}
+  CidrIp: 0.0.0.0/0
+{% endif %}

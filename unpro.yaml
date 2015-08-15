@@ -2,7 +2,7 @@ unpro:
   template_path: templates
   region: us-east-1
   stacks:
-    public-subnet:
+    base:
       description: unpro public stack
       parameters:
         KeyName:
@@ -21,7 +21,7 @@ unpro:
           description: VPC Cidr
           type: String
           default: 10.0.0.0/16
-        VPNCidr: 
+        HomeCidr:
           description: VPN Cidr
           type: String
           default: 10.1.0.0/24
@@ -93,386 +93,6 @@ unpro:
             - m3.medium
             - m3.large
           constraintDescription: must be a valid EC2 instance type.
-      mappings:
-        UNPROAMI:
-          us-east-1:
-            AMI: ami-1ad5d372
-        NATAMI:
-          us-east-1:
-            AMI: ami-6e9e4b06
-      resource_chunk: public_chunk.json
-      resources:
-        PublicSubnet:
-          template: subnet.yaml.jinja
-          variables:
-            cidr_name: PublicSubnetCidr
-            network: Public
-        PrivateSubnet:
-          template: subnet.yaml.jinja
-          variables:
-            cidr_name: PrivateSubnetCidr
-            network: Private
-        PublicRouteTable:
-          template: route_table.yaml.jinja
-          variables:
-            network: Public
-        PrivateRouteTable:
-          template: route_table.yaml.jinja
-          variables:
-            network: Private
-        PrivateRoute:
-          template: route.yaml.jinja
-          variables:
-            dest_cidr: 0.0.0.0/0
-            route_table: PrivateRouteTable
-            network_interface: NATNetworkInterface
-        PublicSubnetRTAssoc:
-          template: route_table_assoc.yaml.jinja
-          variables:
-            prefix: Public
-        PrivateSubnetRTAssoc:
-          template: route_table_assoc.yaml.jinja
-          variables:
-            prefix: Private
-        EgressSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow all outbound traffic
-            egress_rules:
-              - protocol: -1
-        PublicSSHSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow SSH from remote
-            ingress_rules:
-              - protocol: tcp
-                port: 22
-        PublicICMPSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow ICMP from remote
-            ingress_rules:
-              - protocol: icmp
-                port: -1
-        PrivateSSHSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow SSH from local nodes
-            ingress_rules:
-              - protocol: tcp
-                port: 22
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 22
-                cidr: {Ref: VPNCidr}
-        PrivateICMPSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow ICMP from local nodes
-            ingress_rules:
-              - protocol: icmp
-                port: -1
-                cidr: {Ref: VPCCidr}
-              - protocol: icmp
-                port: -1
-                cidr: {Ref: VPNCidr}
-        NATSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow nat traffic
-            ingress_rules:
-              - protocol: -1
-                cidr: {Ref: PrivateSubnetCidr}
-        NATNetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PublicSubnet
-            security_groups:
-              - NATSecurityGroup
-              - PublicSSHSecurityGroup
-              - PublicICMPSecurityGroup
-              - EgressSecurityGroup
-            source_dest: false
-            tags:
-              Network: Public
-        NATEIPAssociation:
-          template: eip_association.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            alloc_id: NATEIPAllocationId
-            interface: NATNetworkInterface
-        NATInstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - DefaultInstance
-        NATInstance:
-          template: instance.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            instance_type: NATNodeInstanceType
-            instance_profile: NATInstanceProfile
-            network_interfaces:
-              - NATNetworkInterface
-            image_map: NATAMI
-            name: nat
-            roles:
-              - aws_nat
-            tags:
-              Network: Public
-        NATPrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_ref: TeamUnproHostedZone
-            type: CNAME
-            name: nat.teamunpro.
-            instance: NATInstance
-            property: PrivateDnsName
-        MumbleSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow mumble ports
-            ingress_rules:
-              - protocol: tcp
-                port: 64738
-              - protocol: udp
-                port: 64738
-        MumbleNetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PublicSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - PrivateSSHSecurityGroup
-              - PublicICMPSecurityGroup
-              - MumbleSecurityGroup
-            tags:
-              Network: Public
-        MumbleEIPAssociation:
-          template: eip_association.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            alloc_id: MumbleEIPAllocationId
-            interface: MumbleNetworkInterface
-        MumbleInstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - MumbleInstance
-        MumbleInstance:
-          template: instance.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            instance_type: MumbleNodeInstanceType
-            instance_profile: MumbleInstanceProfile
-            network_interfaces:
-              - MumbleNetworkInterface
-            image_map: UNPROAMI
-            name: mumble
-            roles:
-              - voice_server
-            has_salt: True
-            tags:
-              Network: Public
-        MumblePrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_: teamunpro.
-            zone_ref: TeamUnproHostedZone
-            type: CNAME
-            name: mumble.teamunpro.
-            instance: MumbleInstance
-            property: PrivateDnsName
-        MumblePublicDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_name: teamunpro.com.
-            type: A
-            name: mumble.teamunpro.com
-            instance: MumbleInstance
-            property: PublicIp
-        IrcSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow ZNC traffic
-            ingress_rules:
-              - protocol: tcp
-                port: 6667
-        App01NetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PublicSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - PrivateSSHSecurityGroup
-              - PublicICMPSecurityGroup
-              - IrcSecurityGroup
-            tags:
-              Network: Public
-        App01EIPAssociation:
-          template: eip_association.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            alloc_id: App01EIPAllocationId
-            interface: App01NetworkInterface
-        App01InstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - App01Instance
-        App01Instance:
-          template: instance.yaml.jinja
-          variables:
-            depends_on: GatewayToInternet
-            instance_type: AppNodeInstanceType
-            instance_profile: App01InstanceProfile
-            network_interfaces:
-              - App01NetworkInterface
-            image_map: UNPROAMI
-            name: app-01
-            roles:
-             - irc_bouncer
-            has_salt: True
-            tags:
-              Network: Public
-        App01PrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_ref: TeamUnproHostedZone
-            type: CNAME
-            name: app-01.teamunpro.
-            instance: App01Instance
-            property: PrivateDnsName
-        ZncPublicDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_name: teamunpro.com.
-            type: A
-            name: znc.teamunpro.com
-            instance: App01Instance
-            property: PublicIp
-        VPNPublicRoute:
-          template: route.yaml.jinja
-          variables:
-            dest_cidr: {Ref: VPNCidr}
-            route_table: PublicRouteTable
-            network_interface: VPNNetworkInterface
-        VPNPrivateRoute:
-          template: route.yaml.jinja
-          variables:
-            dest_cidr: {Ref: VPNCidr}
-            route_table: PrivateRouteTable
-            network_interface: VPNNetworkInterface
-        VPNSecurityGroup:
-          template: security_group.yaml.jinja
-          variables:
-            description: Allow VPN traffic
-            ingress_rules:
-              - protocol: udp
-                port: 1194
-        VPNNetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PublicSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - PrivateSSHSecurityGroup
-              - PublicICMPSecurityGroup
-              - VPNSecurityGroup
-            source_dest: false
-            tags:
-              Network: Public
-        VPNEIPAssociation:
-          template: eip_association.yaml.jinja
-          variables:
-            alloc_id: VPNEIPAllocationId
-            interface: VPNNetworkInterface
-        VPNInstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - VPNInstance
-        VPNInstance:
-          template: instance.yaml.jinja
-          variables:
-            instance_type: VPNNodeInstanceType
-            instance_profile: VPNInstanceProfile
-            network_interfaces:
-              - VPNNetworkInterface
-            image_map: UNPROAMI
-            name: vpn
-            roles:
-             - vpn_server
-            has_salt: True
-            tags:
-              Network: Public
-        VPNPrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_ref: TeamUnproHostedZone
-            type: CNAME
-            name: vpn.teamunpro.
-            instance: VPNInstance
-            property: PrivateDnsName
-        VPNPublicDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_name: teamunpro.com.
-            type: A
-            name: vpn.teamunpro.com
-            instance: VPNInstance
-            property: PublicIp
-    sensu:
-      description: unpro sensu stack
-      parameters:
-        KeyName:
-          description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-          type: String
-          minLength: 1
-          maxLength: 64
-          allowedPattern: '[-_ a-zA-Z0-9]*'
-          constraintDescription: can contain only alphanumeric characters, spaces, dashes and underscores.
-          default: teamunpro
-        VPCCidr:
-          type: String
-          source:
-            stack: public-subnet
-            type: parameter
-        VPNCidr:
-          type: String
-          source:
-            stack: public-subnet
-            type: parameter
-        VPC:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PrivateSubnet:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        TeamUnproHostedZone:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PrivateSSHSecurityGroup:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        PrivateICMPSecurityGroup:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
-        EgressSecurityGroup:
-          type: String
-          source:
-            stack: public-subnet
-            type: resource
         RabbitMqNodeInstanceType:
           description: Instance type for VPN nodes.
           type: String
@@ -498,9 +118,309 @@ unpro:
       mappings:
         UNPROAMI:
           us-east-1:
-            AMI: ami-1ad5d372
-      resource_chunk: sensu_chunk.json
+            AMI: ami-c32c86a8
+        NATAMI:
+          us-east-1:
+            AMI: ami-6e9e4b06
+      resource_chunk: base_chunk.json
       resources:
+        PublicSubnet:
+          template: subnet.yaml.jinja
+          variables:
+            cidr_name: PublicSubnetCidr
+            network: Public
+        PrivateSubnet:
+          template: subnet.yaml.jinja
+          variables:
+            cidr_name: PrivateSubnetCidr
+            network: Private
+        PublicRouteTable:
+          template: route_table.yaml.jinja
+          variables:
+            network: Public
+        PrivateRouteTable:
+          template: route_table.yaml.jinja
+          variables:
+            network: Private
+        PrivateRoute:
+          template: route.yaml.jinja
+          variables:
+            dest_cidr: 0.0.0.0/0
+            route_table: PrivateRouteTable
+            instance: NATInstance
+        PublicSubnetRTAssoc:
+          template: route_table_assoc.yaml.jinja
+          variables:
+            prefix: Public
+        PrivateSubnetRTAssoc:
+          template: route_table_assoc.yaml.jinja
+          variables:
+            prefix: Private
+        HomeICMPIngress:
+          template: security_group_ingress.yaml.jinja
+          variables:
+            protocol: icmp
+            port: -1
+            cidr_ref: HomeCidr
+        HomeSSHIngress:
+          template: security_group_ingress.yaml.jinja
+          variables:
+            protocol: tcp
+            port: 22
+            cidr_ref: HomeCidr
+        PublicSSHSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow SSH from remote
+            ingress_rules:
+              - protocol: tcp
+                port: 22
+        PublicICMPSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow ICMP from remote
+            ingress_rules:
+              - protocol: icmp
+                port: -1
+        NATEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: NATEIPAllocationId
+            instance: NATInstance
+        NATInstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - DefaultInstance
+        NATInstance:
+          template: instance.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: NATNodeInstanceType
+            instance_profile: NATInstanceProfile
+            security_groups:
+              - PublicSSHSecurityGroup
+              - PublicICMPSecurityGroup
+            source_dest: false
+            subnet: PublicSubnet
+            image_map: NATAMI
+            name: nat
+            roles:
+              - aws_nat
+            tags:
+              Network: Public
+        NATPrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: nat.aws.teamunpro.
+            instance: NATInstance
+            property: PrivateDnsName
+        MumbleSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow mumble ports
+            ingress_rules:
+              - protocol: tcp
+                port: 64738
+              - protocol: udp
+                port: 64738
+        MumbleEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: MumbleEIPAllocationId
+            instance: MumbleInstance
+        MumbleInstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - MumbleInstance
+        MumbleInstance:
+          template: instance.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: MumbleNodeInstanceType
+            instance_profile: MumbleInstanceProfile
+            image_map: UNPROAMI
+            name: mumble
+            roles:
+              - voice_server
+            has_salt: True
+            subnet: PublicSubnet
+            security_groups:
+              - PublicICMPSecurityGroup
+              - MumbleSecurityGroup
+            tags:
+              Network: Public
+        MumblePrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: mumble.aws.teamunpro.
+            instance: MumbleInstance
+            property: PrivateDnsName
+        MumblePublicDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            depends_on: MumbleEIPAssociation
+            zone_name: teamunpro.com.
+            type: A
+            name: mumble.teamunpro.com
+            instance: MumbleInstance
+            property: PublicIp
+        IrcSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow ZNC traffic
+            ingress_rules:
+              - protocol: tcp
+                port: 6667
+        App01EIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            alloc_id: App01EIPAllocationId
+            instance: App01Instance
+        App01InstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - App01Instance
+        App01Instance:
+          template: instance.yaml.jinja
+          variables:
+            depends_on: GatewayToInternet
+            instance_type: AppNodeInstanceType
+            instance_profile: App01InstanceProfile
+            image_map: UNPROAMI
+            name: app-01
+            roles:
+             - irc_bouncer
+            has_salt: True
+            subnet: PublicSubnet
+            security_groups:
+              - PublicICMPSecurityGroup
+              - IrcSecurityGroup
+            tags:
+              Network: Public
+        App01PrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: app-01.aws.teamunpro.
+            instance: App01Instance
+            property: PrivateDnsName
+        ZncPublicDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            depends_on: App01EIPAssociation
+            zone_name: teamunpro.com.
+            type: A
+            name: znc.teamunpro.com
+            instance: App01Instance
+            property: PublicIp
+        VPNPublicRoute:
+          template: route.yaml.jinja
+          variables:
+            dest_cidr: {Ref: HomeCidr}
+            route_table: PublicRouteTable
+            instance: VPNInstance
+        VPNPrivateRoute:
+          template: route.yaml.jinja
+          variables:
+            dest_cidr: {Ref: HomeCidr}
+            route_table: PrivateRouteTable
+            instance: VPNInstance
+        VPNSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow VPN traffic
+            ingress_rules:
+              - protocol: udp
+                port: 1194
+        VPNEIPAssociation:
+          template: eip_association.yaml.jinja
+          variables:
+            alloc_id: VPNEIPAllocationId
+            instance: VPNInstance
+        VPNInstanceProfile:
+          template: instance_profile.yaml.jinja
+          variables:
+            roles:
+              - VPNInstance
+        VPNInstance:
+          template: instance.yaml.jinja
+          variables:
+            instance_type: VPNNodeInstanceType
+            instance_profile: VPNInstanceProfile
+            image_map: UNPROAMI
+            name: vpn
+            roles:
+             - vpn_server
+            has_salt: True
+            subnet: PublicSubnet
+            security_groups:
+              - PublicICMPSecurityGroup
+              - VPNSecurityGroup
+            source_dest: false
+            tags:
+              Network: Public
+        VPNPrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: vpn.aws.teamunpro.
+            instance: VPNInstance
+            property: PrivateDnsName
+        VPNPublicDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            depends_on: VPNEIPAssociation
+            zone_name: teamunpro.com.
+            type: A
+            name: vpn.teamunpro.com
+            instance: VPNInstance
+            property: PublicIp
+        SaltMasterSecurityGroup:
+          template: security_group.yaml.jinja
+          variables:
+            description: Allow rabbitmq traffic
+            ingress_rules:
+              - protocol: tcp
+                from_port: 4505
+                to_port: 4506
+                cidr: {Ref: HomeCidr}
+        SaltMasterInstance:
+          template: instance.yaml.jinja
+          variables:
+            instance_type: SensuNodeInstanceType
+            instance_profile: SensuInstanceProfile
+            image_map: UNPROAMI
+            name: sensu
+            roles:
+              - monitor_master
+              - RabbitMqSecurityGroup
+            has_salt: True
+            salt_master: True
+            subnet: PrivateSubnet
+            security_groups:
+              - SaltMasterSecurityGroup
+            tags:
+              Network: Private
+        SaltMasterPrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: salt-master.aws.teamunpro.
+            instance: SaltMasterInstance
+            property: PrivateDnsName
         RabbitMqSecurityGroup:
           template: security_group.yaml.jinja
           variables:
@@ -508,66 +428,16 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 5672
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 5672
-                cidr: {Ref: VPNCidr}
+                cidr: {Ref: HomeCidr}
               - protocol: tcp
                 port: 15672
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 15672
-                cidr: {Ref: VPNCidr}
+                cidr: {Ref: HomeCidr}
               - protocol: tcp
                 port: 4369
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 4369
-                cidr: {Ref: VPNCidr}
+                cidr: {Ref: HomeCidr}
               - protocol: tcp
                 port: 25672
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 25672
-                cidr: {Ref: VPNCidr}
-        RabbitMq01NetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PrivateSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - PrivateSSHSecurityGroup
-              - PrivateICMPSecurityGroup
-              - RabbitMqSecurityGroup
-            tags:
-              Network: Private
-        RabbitMq01InstanceProfile:
-          template: instance_profile.yaml.jinja
-          variables:
-            roles:
-              - DefaultInstance
-        RabbitMq01Instance:
-          template: instance.yaml.jinja
-          variables:
-            instance_type: RabbitMqNodeInstanceType
-            instance_profile: RabbitMq01InstanceProfile
-            network_interfaces:
-              - RabbitMq01NetworkInterface
-            image_map: UNPROAMI
-            name: rabbitmq-01
-            roles:
-             - rabbitmq
-            has_salt: True
-            tags:
-              Network: Private
-        RabbitMq01PrivateDNSRecord:
-          template: dns_record.yaml.jinja
-          variables:
-            zone_ref: TeamUnproHostedZone
-            type: CNAME
-            name: rabbitmq-01.teamunpro.
-            instance: RabbitMq01Instance
-            property: PrivateDnsName
+                cidr: {Ref: HomeCidr}
         SensuSecurityGroup:
           template: security_group.yaml.jinja
           variables:
@@ -575,33 +445,13 @@ unpro:
             ingress_rules:
               - protocol: tcp
                 port: 4567
-                cidr: {Ref: VPCCidr}
-              - protocol: tcp
-                port: 4567
-                cidr: {Ref: VPNCidr}
+                cidr: {Ref: HomeCidr}
               - protocol: tcp
                 port: 8080
-                cidr: {Ref: VPNCidr}
-              - protocol: tcp
-                port: 8080
-                cidr: {Ref: VPNCidr}
+                cidr: {Ref: HomeCidr}
               - protocol: tcp
                 port: 3000
-                cidr: {Ref: VPNCidr}
-              - protocol: tcp
-                port: 3000
-                cidr: {Ref: VPCCidr}
-        SensuNetworkInterface:
-          template: network_interface.yaml.jinja
-          variables:
-            subnet: PrivateSubnet
-            security_groups:
-              - EgressSecurityGroup
-              - PrivateSSHSecurityGroup
-              - PrivateICMPSecurityGroup
-              - SensuSecurityGroup
-            tags:
-              Network: Private
+                cidr: {Ref: HomeCidr}
         SensuInstanceProfile:
           template: instance_profile.yaml.jinja
           variables:
@@ -612,13 +462,16 @@ unpro:
           variables:
             instance_type: SensuNodeInstanceType
             instance_profile: SensuInstanceProfile
-            network_interfaces:
-              - SensuNetworkInterface
             image_map: UNPROAMI
             name: sensu
             roles:
-             - monitor_master
+              - monitor_master
+              - rabbitmq
             has_salt: True
+            subnet: PrivateSubnet
+            security_groups:
+              - RabbitMqSecurityGroup
+              - SensuSecurityGroup
             tags:
               Network: Private
         SensuPrivateDNSRecord:
@@ -626,6 +479,14 @@ unpro:
           variables:
             zone_ref: TeamUnproHostedZone
             type: CNAME
-            name: sensu.teamunpro.
+            name: sensu.aws.teamunpro.
+            instance: SensuInstance
+            property: PrivateDnsName
+        RabbitMq01PrivateDNSRecord:
+          template: dns_record.yaml.jinja
+          variables:
+            zone_ref: TeamUnproHostedZone
+            type: CNAME
+            name: rabbitmq-01.aws.teamunpro.
             instance: SensuInstance
             property: PrivateDnsName
